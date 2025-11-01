@@ -196,6 +196,13 @@ export {
   AdminActivityLog,
   FieldVisit,
   RestaurantSubscription,
+  Department,
+  Shift,
+  Employee,
+  LeaveRequest,
+  Attendance,
+  JobPost,
+  Holiday,
 };
 
 export default {
