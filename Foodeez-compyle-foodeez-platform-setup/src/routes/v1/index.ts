@@ -24,5 +24,6 @@ router.use('/delivery', deliveryRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/promo', promoRoutes);
 router.use('/support', supportRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;
