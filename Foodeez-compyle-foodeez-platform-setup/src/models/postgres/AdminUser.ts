@@ -43,7 +43,7 @@ AdminUser.init(
       onDelete: 'CASCADE',
     },
     role: {
-      type: DataTypes.ENUM('manager', 'support', 'area_manager', 'team_lead', 'finance'),
+      type: DataTypes.ENUM('super_admin', 'manager', 'support', 'area_manager', 'team_lead', 'finance', 'hr'),
       allowNull: false,
     },
     department: {
