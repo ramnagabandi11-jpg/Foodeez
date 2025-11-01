@@ -7,6 +7,7 @@ import customerRoutes from './customer';
 import restaurantRoutes from './restaurant';
 import deliveryRoutes from './delivery';
 import reviewRoutes from './reviews';
+import promoRoutes from './promo';
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use('/customer', customerRoutes);
 router.use('/restaurant', restaurantRoutes);
 router.use('/delivery', deliveryRoutes);
 router.use('/reviews', reviewRoutes);
+router.use('/promo', promoRoutes);
 
 export default router;
