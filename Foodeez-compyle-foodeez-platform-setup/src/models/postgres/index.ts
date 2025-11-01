@@ -21,6 +21,13 @@ import AdminUser from './AdminUser';
 import AdminActivityLog from './AdminActivityLog';
 import FieldVisit from './FieldVisit';
 import RestaurantSubscription from './RestaurantSubscription';
+import Department from './Department';
+import Shift from './Shift';
+import Employee from './Employee';
+import LeaveRequest from './LeaveRequest';
+import Attendance from './Attendance';
+import JobPost from './JobPost';
+import Holiday from './Holiday';
 
 // Define associations
 // User associations
