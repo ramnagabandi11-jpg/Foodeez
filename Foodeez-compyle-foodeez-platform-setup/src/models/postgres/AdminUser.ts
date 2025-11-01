@@ -17,7 +17,7 @@ export interface AdminUserCreationAttributes extends Optional<AdminUserAttribute
 class AdminUser extends Model<AdminUserAttributes, AdminUserCreationAttributes> implements AdminUserAttributes {
   declare id: string;
   declare userId: string;
-  declare role: 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance';
+  declare role: 'super_admin' | 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance' | 'hr';
   declare department: string | null;
   declare permissions: string[];
   declare assignedCities: string[];
