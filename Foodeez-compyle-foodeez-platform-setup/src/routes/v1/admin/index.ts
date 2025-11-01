@@ -5,6 +5,7 @@ import customerRoutes from './customers';
 import orderRoutes from './orders';
 import financeRoutes from './finance';
 import analyticsRoutes from './analytics';
+import supportRoutes from './support';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/customers', customerRoutes);
 router.use('/orders', orderRoutes);
 router.use('/finance', financeRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/support', supportRoutes);
 
 export default router;
