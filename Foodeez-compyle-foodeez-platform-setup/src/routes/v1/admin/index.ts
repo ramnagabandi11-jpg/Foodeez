@@ -4,6 +4,7 @@ import deliveryPartnerRoutes from './delivery-partners';
 import customerRoutes from './customers';
 import orderRoutes from './orders';
 import financeRoutes from './finance';
+import analyticsRoutes from './analytics';
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use('/delivery-partners', deliveryPartnerRoutes);
 router.use('/customers', customerRoutes);
 router.use('/orders', orderRoutes);
 router.use('/finance', financeRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export default router;
