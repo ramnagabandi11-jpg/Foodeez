@@ -4,7 +4,7 @@ import { sequelize } from '@/config/database';
 export interface AdminUserAttributes {
   id: string;
   userId: string;
-  role: 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance';
+  role: 'super_admin' | 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance' | 'hr';
   department: string | null;
   permissions: string[];
   assignedCities: string[];
