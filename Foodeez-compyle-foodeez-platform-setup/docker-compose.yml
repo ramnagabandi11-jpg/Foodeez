@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: foodeez-postgres
+    environment:
+      POSTGRES_DB: foodeez_dev
+      POSTGRES_USER: foodeez_user
+      POSTGRES_PASSWORD: foodeez_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodeez_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foodeez-network
+
+  mongodb:
+    image: mongo:7
+    container_name: foodeez-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: foodeez_user
+      MONGO_INITDB_ROOT_PASSWORD: foodeez_password
+      MONGO_INITDB_DATABASE: foodeez_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foodeez-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: foodeez-redis
+    command: redis-server --requirepass foodeez_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "foodeez_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foodeez-network
+
+  elasticsearch:
+    image: elasticsearch:7.17.13
+    container_name: foodeez-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foodeez-network
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  elasticsearch_data:
+
+networks:
+  foodeez-network:
+    driver: bridge
