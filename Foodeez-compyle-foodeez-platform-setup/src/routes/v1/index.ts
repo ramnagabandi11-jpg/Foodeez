@@ -6,6 +6,7 @@ import searchRoutes from './search';
 import customerRoutes from './customer';
 import restaurantRoutes from './restaurant';
 import deliveryRoutes from './delivery';
+import reviewRoutes from './reviews';
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.use('/search', searchRoutes);
 router.use('/customer', customerRoutes);
 router.use('/restaurant', restaurantRoutes);
 router.use('/delivery', deliveryRoutes);
+router.use('/reviews', reviewRoutes);
 
 export default router;
