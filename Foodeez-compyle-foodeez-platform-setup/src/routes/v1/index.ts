@@ -9,6 +9,7 @@ import deliveryRoutes from './delivery';
 import reviewRoutes from './reviews';
 import promoRoutes from './promo';
 import supportRoutes from './support';
+import adminRoutes from './admin';
 
 const router = Router();
 
