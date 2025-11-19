@@ -9,6 +9,7 @@ import supportRoutes from './support';
 import hrRoutes from './hr';
 import fieldVisitsRoutes from './field-visits';
 import advertisementsRoutes from './advertisements';
+import activityLogsRoutes from './activity-logs';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/support', supportRoutes);
 router.use('/hr', hrRoutes);
 router.use('/field-visits', fieldVisitsRoutes);
 router.use('/advertisements', advertisementsRoutes);
+router.use('/activity-logs', activityLogsRoutes);
 
 export default router;
