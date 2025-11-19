@@ -118,6 +118,18 @@ async function startServer() {
         logger.info('Server closed');
 
         try {
+          // Stop background jobs
+          stopAllSchedulers();
+          logger.info('✓ Background job schedulers stopped');
+
+          // Pause queues before disconnecting
+          await pauseAllQueues();
+          logger.info('✓ Job queues paused');
+
+          // Clear queue jobs for clean shutdown
+          await clearAllQueues();
+          logger.info('✓ Job queues cleared');
+
           await disconnectDatabase();
           await disconnectMongoDB();
           await disconnectRedis();
