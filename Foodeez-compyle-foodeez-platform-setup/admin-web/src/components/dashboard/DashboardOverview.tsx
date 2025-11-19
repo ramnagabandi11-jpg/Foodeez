@@ -9,6 +9,7 @@ import {
   Truck,
   ShoppingCart,
   DollarSign,
+  CreditCard,
   Headphones,
   Calendar,
   AlertCircle,
