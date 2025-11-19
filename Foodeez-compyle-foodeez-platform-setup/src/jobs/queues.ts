@@ -1,6 +1,7 @@
 import Bull from 'bull';
 import { config } from '@/config';
 import { Order, Payment, Wallet, WalletTransaction, User, Notification } from '@/models/postgres';
+import Address from '@/models/postgres/Address';
 import { sendEmail, sendSMS } from '@/services/notificationService';
 import { logActivity } from '@/controllers/admin/activityLogsAdminController';
 
