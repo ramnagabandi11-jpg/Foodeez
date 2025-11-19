@@ -8,6 +8,7 @@ import analyticsRoutes from './analytics';
 import supportRoutes from './support';
 import hrRoutes from './hr';
 import fieldVisitsRoutes from './field-visits';
+import advertisementsRoutes from './advertisements';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/analytics', analyticsRoutes);
 router.use('/support', supportRoutes);
 router.use('/hr', hrRoutes);
 router.use('/field-visits', fieldVisitsRoutes);
+router.use('/advertisements', advertisementsRoutes);
 
 export default router;
