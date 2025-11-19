@@ -19,6 +19,8 @@ import {
   disconnectElasticsearch
 } from '@/config/elasticsearch';
 import { initializeSocketIO } from '@/sockets';
+import { startAllSchedulers, stopAllSchedulers } from '@/jobs/schedulers';
+import { getQueueStats, pauseAllQueues, resumeAllQueues, clearAllQueues } from '@/jobs/queues';
 
 // Load environment variables
 dotenv.config();
