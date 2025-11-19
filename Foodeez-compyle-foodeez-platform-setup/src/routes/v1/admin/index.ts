@@ -7,6 +7,7 @@ import financeRoutes from './finance';
 import analyticsRoutes from './analytics';
 import supportRoutes from './support';
 import hrRoutes from './hr';
+import fieldVisitsRoutes from './field-visits';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/finance', financeRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/support', supportRoutes);
 router.use('/hr', hrRoutes);
+router.use('/field-visits', fieldVisitsRoutes);
 
 export default router;
