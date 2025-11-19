@@ -66,6 +66,14 @@ async function initializeServices() {
     await initializeElasticsearch();
     logger.info('✓ Elasticsearch connected');
 
+    // Initialize background jobs
+    startAllSchedulers();
+    logger.info('✓ Background job schedulers started');
+
+    // Resume any paused queues
+    await resumeAllQueues();
+    logger.info('✓ Job queues resumed');
+
     logger.info('All services initialized successfully');
   } catch (error) {
     logger.error('Failed to initialize services:', error);
