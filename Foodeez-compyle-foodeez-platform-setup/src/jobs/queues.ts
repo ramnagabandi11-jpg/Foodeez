@@ -2,8 +2,17 @@ import Bull from 'bull';
 import { config } from '@/config';
 import { Order, Payment, Wallet, WalletTransaction, User, Notification } from '@/models/postgres';
 import Address from '@/models/postgres/Address';
-import { sendEmail, sendSMS } from '@/services/notificationService';
+import { Op } from 'sequelize';
 import { logActivity } from '@/controllers/admin/activityLogsAdminController';
+
+// Mock notification service (would be implemented in a real system)
+const sendEmail = async (to: string, subject: string, template: string, data: any) => {
+  console.log(`Mock email sent to ${to}: ${subject}`);
+};
+
+const sendSMS = async (to: string, message: string) => {
+  console.log(`Mock SMS sent to ${to}: ${message}`);
+};
 
 // Redis configuration
 const redisConfig = {
