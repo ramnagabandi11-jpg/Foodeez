@@ -19,6 +19,7 @@ import {
   disconnectElasticsearch
 } from '@/config/elasticsearch';
 import { initializeSocketIO } from '@/sockets';
+import { initializeServices, setupGracefulShutdown } from '@/scripts/startup';
 
 // Load environment variables
 dotenv.config();
