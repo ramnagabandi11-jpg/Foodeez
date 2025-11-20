@@ -405,6 +405,33 @@ export const updateOrderStatus = async (
     }
   );
 
+  // Queue order status email notification
+  const customer = await Customer.findByPk(order.customerId);
+  if (customer && customer.email) {
+    emailQueue.add('order-status-update', {
+      orderId: order.id,
+      status,
+      customerId: order.customerId,
+      customerEmail: customer.email,
+    }, {
+      delay: 2000, // Send after 2 seconds
+      removeOnComplete: true,
+    });
+  }
+
+  // Additional background jobs based on status
+  if (status === 'restaurant_accepted') {
+    // Queue delivery partner assignment immediately
+    orderQueue.add('delivery-partner-assignment', {
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      deliveryAddress: await Address.findByPk(order.deliveryAddressId),
+    }, {
+      delay: 30000, // Start after 30 seconds
+      removeOnComplete: true,
+    });
+  }
+
   // Award loyalty points on delivery
   if (status === 'delivered') {
     const customer = await Customer.findByPk(order.customerId);
