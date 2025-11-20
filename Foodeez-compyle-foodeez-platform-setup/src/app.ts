@@ -34,6 +34,12 @@ export const createApp = (): Express => {
   // Logging middleware
   app.use(morgan('combined'));
 
+  // Request logging middleware
+  app.use(requestLogger);
+
+  // Initialize monitoring endpoints
+  initializeMonitoring(app);
+
   // Body parsing middleware
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
