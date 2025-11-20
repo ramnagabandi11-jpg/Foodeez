@@ -19,6 +19,10 @@ import {
 } from '@/utils/errors';
 import { OrderStatus, PaymentMethod } from '@/types';
 import { PAYMENT_CONFIG, ORDER_CONFIG } from '@/utils/constants';
+import {
+  emitOrderStatusUpdate,
+  emitNewOrderToRestaurant,
+} from '@/sockets';
 
 /**
  * Calculate delivery fee based on distance
