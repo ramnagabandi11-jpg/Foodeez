@@ -1,33 +1,43 @@
-# FoodeeZ Backend API
+# Foodeez Backend - AWS Deployment
 
-Node.js + Express backend server for the FoodeeZ food delivery platform.
+This repository contains the complete AWS deployment configuration for the Foodeez food delivery platform backend.
 
-## Prerequisites
+## 🚀 Quick Start
 
-- Node.js v18+
-- PostgreSQL 15+
-- MongoDB 7+
-- Redis 7+
-- Elasticsearch/OpenSearch 2.11+
+### Prerequisites
 
-## Quick Start
+- AWS CLI configured with appropriate permissions
+- Docker installed and running
+- Node.js 18+ installed
 
-### 1. Setup Environment
+### One-Command Deployment
+
+```bash
+# Deploy to production environment
+./deploy.sh -e production -r us-east-1
+
+# Deploy to staging environment
+./deploy.sh -e staging -r us-west-2
+```
+
+### Local Development Setup
+
+For local development, follow these steps:
+
+#### 1. Setup Environment
 
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
-### 2. Install Dependencies
+#### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Start Local Services (Docker Compose)
-
-From the project root:
+#### 3. Start Local Services (Docker Compose)
 
 ```bash
 docker-compose up -d
@@ -41,13 +51,7 @@ This starts:
 - pgAdmin on port 5050
 - Mongo Express on port 8081
 
-### 4. Verify Database Connections
-
-```bash
-npm run typecheck
-```
-
-### 5. Start Development Server
+#### 4. Start Development Server
 
 ```bash
 npm run dev
