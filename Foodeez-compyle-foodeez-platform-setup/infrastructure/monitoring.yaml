@@ -1,0 +1,486 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foodeez Platform - Monitoring and Logging Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Environment name
+
+  EmailAlertRecipient:
+    Type: String
+    Default: alerts@foodeez.com
+    Description: Email address for alert notifications
+
+  SlackWebhookURL:
+    Type: String
+    Default: ''
+    Description: Slack webhook URL for alert notifications (optional)
+
+Resources:
+  # CloudWatch Log Groups
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/${Environment}-foodeez-backend'
+      RetentionInDays: 30
+
+  DatabaseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/rds/${Environment}-foodeez-database'
+      RetentionInDays: 14
+
+  # CloudWatch Metrics and Alarms
+
+  # CPU Utilization Alarm
+  CPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-backend-high-cpu'
+      AlarmDescription: 'High CPU utilization for Foodeez backend service'
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ServiceName
+          Value: !Sub '${Environment}-foodeez-backend'
+        - Name: ClusterName
+          Value: !Sub '${Environment}-foodeez-cluster'
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-cpu-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Memory Utilization Alarm
+  MemoryUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-backend-high-memory'
+      AlarmDescription: 'High memory utilization for Foodeez backend service'
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - Name: ServiceName
+          Value: !Sub '${Environment}-foodeez-backend'
+        - Name: ClusterName
+          Value: !Sub '${Environment}-foodeez-cluster'
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-memory-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ALB 5XX Error Rate Alarm
+  ALB5XXErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-alb-5xx-errors'
+      AlarmDescription: 'High 5XX error rate on Application Load Balancer'
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Sub 'app/${Environment}-foodeez-alb/*'
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-alb-errors-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ALB Response Time Alarm
+  ALBResponseTimeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-alb-high-response-time'
+      AlarmDescription: 'High response time on Application Load Balancer'
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Sub 'app/${Environment}-foodeez-alb/*'
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-response-time-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Database Connection Alarm
+  DatabaseConnectionAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-database-connections'
+      AlarmDescription: 'High number of database connections'
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Sub '${Environment}-foodeez-postgresql'
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-db-connections-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Disk Space Alarm
+  DiskSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-foodeez-database-disk-space'
+      AlarmDescription: 'Low free storage space on database'
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Sub '${Environment}-foodeez-postgresql'
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10737418240  # 10GB in bytes
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertSNSTopic
+      OKActions:
+        - !Ref AlertSNSTopic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-disk-space-alarm'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # SNS Topic for Alerts
+  AlertSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${Environment}-foodeez-alerts'
+      DisplayName: !Sub 'Foodeez ${Environment} Alerts'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-alerts-topic'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Email Subscription
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertSNSTopic
+      Protocol: email
+      Endpoint: !Ref EmailAlertRecipient
+
+  # Slack Subscription (if webhook provided)
+  SlackSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasSlackWebhook
+    Properties:
+      TopicArn: !Ref AlertSNSTopic
+      Protocol: https
+      Endpoint: !Ref SlackWebhookURL
+
+  # CloudWatch Dashboard
+  CloudWatchDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${Environment}-foodeez-dashboard'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ECS", "CPUUtilization", "ServiceName", "${Environment}-foodeez-backend", "ClusterName", "${Environment}-foodeez-cluster"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "ECS CPU Utilization",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ECS", "MemoryUtilization", "ServiceName", "${Environment}-foodeez-backend", "ClusterName", "${Environment}-foodeez-cluster"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "ECS Memory Utilization",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "app/${Environment}-foodeez-alb/*"],
+                  [".", "HTTPCode_Target_4XX_Count", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "ALB Error Rates",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/${Environment}-foodeez-alb/*"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "ALB Response Time",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${Environment}-foodeez-postgresql"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Database Connections",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", "${Environment}-foodeez-postgresql"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Database Free Storage (GB)",
+                "period": 300,
+                "stat": "Average"
+              }
+            },
+            {
+              "type": "log",
+              "x": 0,
+              "y": 18,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '/ecs/${Environment}-foodeez-backend'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 100",
+                "region": "${AWS::Region}",
+                "title": "Recent Application Errors",
+                "view": "table"
+              }
+            }
+          ]
+        }
+
+  # Custom Metrics Lambda Function
+  CustomMetricsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-foodeez-custom-metrics'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt CustomMetricsRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+
+          cloudwatch = boto3.client('cloudwatch')
+
+          def lambda_handler(event, context):
+              # Custom metrics can be added here
+              # For example: business metrics, order counts, user registrations, etc.
+
+              metric_data = [
+                  {
+                      'MetricName': 'Heartbeat',
+                      'Value': 1,
+                      'Unit': 'Count',
+                      'Timestamp': datetime.utcnow(),
+                      'Dimensions': [
+                          {
+                              'Name': 'Environment',
+                              'Value': os.environ.get('ENVIRONMENT', 'unknown')
+                          }
+                      ]
+                  }
+              ]
+
+              try:
+                  cloudwatch.put_metric_data(
+                      Namespace='Foodeez/Custom',
+                      MetricData=metric_data
+                  )
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps('Metrics published successfully')
+                  }
+              except Exception as e:
+                  print(f"Error publishing metrics: {e}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps(f'Error: {str(e)}')
+                  }
+
+  # Custom Metrics Role
+  CustomMetricsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-custom-metrics-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudWatchPutMetricPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+
+  # EventBridge Rule for scheduled custom metrics
+  CustomMetricsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${Environment}-foodeez-custom-metrics-schedule'
+      ScheduleExpression: 'rate(5 minutes)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt CustomMetricsFunction.Arn
+          Id: CustomMetricsTarget
+
+  # Lambda Permission for EventBridge
+  CustomMetricsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CustomMetricsFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CustomMetricsRule.Arn
+
+Conditions:
+  HasSlackWebhook: !Not [!Equals [!Ref SlackWebhookURL, '']]
+
+Outputs:
+  AlertSNSTopicArn:
+    Description: SNS topic ARN for alerts
+    Value: !Ref AlertSNSTopic
+    Export:
+      Name: !Sub '${Environment}-Alert-SNS-Topic-ARN'
+
+  CloudWatchDashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${Environment}-foodeez-dashboard'
+    Export:
+      Name: !Sub '${Environment}-CloudWatch-Dashboard-URL'
+
+  ApplicationLogGroupName:
+    Description: Application log group name
+    Value: !Ref ApplicationLogGroup
+    Export:
+      Name: !Sub '${Environment}-App-Log-Group-Name'
+
+  CustomMetricsFunctionArn:
+    Description: Custom metrics Lambda function ARN
+    Value: !GetAtt CustomMetricsFunction.Arn
+    Export:
+      Name: !Sub '${Environment}-Custom-Metrics-Function-ARN'
