@@ -1,0 +1,528 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foodeez Platform - Master CloudFormation Template'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Environment name
+
+  EmailAlertRecipient:
+    Type: String
+    Default: alerts@foodeez.com
+    Description: Email address for alert notifications
+
+  SlackWebhookURL:
+    Type: String
+    Default: ''
+    Description: Slack webhook URL for alert notifications (optional)
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for VPC
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.medium
+    AllowedValues: [db.t3.micro, db.t3.small, db.t3.medium, db.t3.large, db.r5.large, db.r5.xlarge]
+    Description: Database instance class
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 100
+    MinValue: 20
+    MaxValue: 1000
+    Description: Initial database storage (GB)
+
+  DesiredCount:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 10
+    Description: Desired number of ECS tasks
+
+  MaxCapacity:
+    Type: Number
+    Default: 10
+    MinValue: 2
+    MaxValue: 50
+    Description: Maximum number of ECS tasks for auto scaling
+
+  MultiAZ:
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+    Description: Enable Multi-AZ deployment for databases
+
+  AllowedIPRanges:
+    Type: List<String>
+    Default: [0.0.0.0/0]
+    Description: Allowed IP ranges for access (CIDR notation)
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - Environment
+          - EmailAlertRecipient
+          - SlackWebhookURL
+
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcCidr
+          - AllowedIPRanges
+
+      - Label:
+          default: Database Configuration
+        Parameters:
+          - DBInstanceClass
+          - DBAllocatedStorage
+          - MultiAZ
+
+      - Label:
+          default: Application Configuration
+        Parameters:
+          - DesiredCount
+          - MaxCapacity
+
+Resources:
+  # VPC and Networking Stack
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: vpc.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VpcCidr: !Ref VpcCidr
+
+  # Database Stack
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VPCStack
+    Properties:
+      TemplateURL: databases.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        PrivateSubnetIds: !Split [',', !GetAtt VPCStack.Outputs.PrivateSubnetIds]
+        DatabaseSubnetIds: !Split [',', !GetAtt VPCStack.Outputs.DatabaseSubnetIds]
+        DatabaseSubnetGroupName: !GetAtt VPCStack.Outputs.DatabaseSubnetGroupName
+        DBInstanceClass: !Ref DBInstanceClass
+        DBAllocatedStorage: !Ref DBAllocatedStorage
+        MultiAZ: !Ref MultiAZ
+
+  # ECS Stack
+  ECSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - DatabaseStack
+    Properties:
+      TemplateURL: ecs.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        PrivateSubnetIds: !Split [',', !GetAtt VPCStack.Outputs.PrivateSubnetIds]
+        ApplicationSecurityGroupId: !GetAtt DatabaseStack.Outputs.ApplicationSecurityGroupId
+        DesiredCount: !Ref DesiredCount
+        MaxCapacity: !Ref MaxCapacity
+
+  # Monitoring Stack
+  MonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ECSStack
+    Properties:
+      TemplateURL: monitoring.yaml
+      Parameters:
+        Environment: !Ref Environment
+        EmailAlertRecipient: !Ref EmailAlertRecipient
+        SlackWebhookURL: !Ref SlackWebhookURL
+
+  # Security Stack
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - ECSStack
+    Properties:
+      TemplateURL: security.yaml
+      Parameters:
+        Environment: !Ref Environment
+        AllowedIPRanges: !Ref AllowedIPRanges
+
+  # ECR Repository
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: foodeez-backend
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        Rules:
+          - RulePriority: 1
+            Description: Keep last 20 tagged images
+            Selection:
+              tagStatus: tagged
+              tagPrefixList: ['v']
+              countType: imageCountMoreThan
+              countNumber: 20
+            Action:
+              type: expire
+          - RulePriority: 2
+            Description: Keep last 10 untagged images
+            Selection:
+              tagStatus: untagged
+              countType: imageCountMoreThan
+              countNumber: 10
+            Action:
+              type: expire
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-backend-ecr'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodeCommit Repository
+  CodeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: foodeez-backend
+      RepositoryDescription: 'Foodeez backend application repository'
+      Code:
+        S3:
+          Bucket: !Sub '${Environment}-foodeez-source-bucket-${AWS::AccountId}'
+          Key: 'foodeez-backend-source.zip'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-backend-codecommit'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket for source code
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-foodeez-source-bucket-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-source'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodeBuild Project
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${Environment}-foodeez-backend-build'
+      Description: 'Build project for Foodeez backend application'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+      TimeoutInMinutes: 60
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-backend-codebuild'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodeBuild Role
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-codebuild-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${SourceBucket}'
+                  - !Sub '${SourceBucket}/*'
+              - Effect: Allow
+                Action:
+                  - codecommit:GitPull
+                Resource: !GetAtt CodeCommitRepository.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-codebuild-role'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodePipeline
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn:
+      - CodeBuildProject
+      - ECRRepository
+    Properties:
+      Name: !Sub '${Environment}-foodeez-backend-pipeline'
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref SourceBucket
+        EncryptionKey:
+          Id: !GetAtt SecurityStack.Outputs.EncryptionKeyArn
+          Type: KMS
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName: !GetAtt CodeCommitRepository.Name
+                BranchName: main
+              OutputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
+        - Name: Deploy
+          Actions:
+            - Name: DeployToECS
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CodeDeployToECS
+                Version: '1'
+              Configuration:
+                ApplicationName: !Ref CodeDeployApplication
+                DeploymentGroupName: !Ref CodeDeployDeploymentGroup
+                Image1ArtifactName: BuildOutput
+                Image1ContainerName: foodeez-backend
+                TaskDefinitionTemplateArtifact: BuildOutput
+                AppSpecTemplateArtifact: BuildOutput
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-backend-pipeline'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodePipeline Role
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-codepipeline-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${SourceBucket}'
+                  - !Sub '${SourceBucket}/*'
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetRepository
+                  - codecommit:GitPull
+                Resource: !GetAtt CodeCommitRepository.Arn
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StopBuild
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt CodeDeployRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-codepipeline-role'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodeDeploy Application
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub '${Environment}-foodeez-backend'
+      ComputePlatform: ECS
+
+  # CodeDeploy Role
+  CodeDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-codedeploy-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForECS
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-codedeploy-role'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CodeDeploy Deployment Group
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentGroupName: !Sub '${Environment}-foodeez-backend-group'
+      DeploymentConfigName: CodeDeployDefault.ECSAllAtOnce
+      ServiceRoleArn: !GetAtt CodeDeployRole.Arn
+      DeploymentStyle:
+        DeploymentType: BLUE_GREEN
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+      BlueGreenDeploymentConfiguration:
+        TerminateBlueInstancesOnDeploymentSuccess:
+          Action: TERMINATE
+          TerminationWaitTimeInMinutes: 5
+        DeploymentReadyOption:
+          ActionOnTimeout: CONTINUE_DEPLOYMENT
+        BlueInstanceTerminationOption:
+          Action: TERMINATE
+      LoadBalancers:
+        - TargetGroupPairInfoList:
+            - TargetGroups:
+                - Name: !GetAtt ECSStack.Outputs.TargetGroupARN
+          ProdTrafficRoute:
+            ListenerArns:
+              - !GetAtt ECSStack.Outputs.HTTPListenerARN
+      AlarmConfiguration:
+        Alarms:
+          - Name: !Sub '${Environment}-foodeez-backend-high-cpu'
+            AlarmAction: ROLLBACK_DEPLOYMENT
+          - Name: !Sub '${Environment}-foodeez-alb-5xx-errors'
+            AlarmAction: ROLLBACK_DEPLOYMENT
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !GetAtt VPCStack.Outputs.VPCId
+    Export:
+      Name: !Sub '${Environment}-VPC-ID'
+
+  PrivateSubnetIds:
+    Description: Private subnet IDs
+    Value: !GetAtt VPCStack.Outputs.PrivateSubnetIds
+    Export:
+      Name: !Sub '${Environment}-Private-Subnet-IDs'
+
+  LoadBalancerDNS:
+    Description: Load balancer DNS name
+    Value: !GetAtt ECSStack.Outputs.LoadBalancerDNS
+    Export:
+      Name: !Sub '${Environment}-ALB-DNS'
+
+  ECRRepositoryURI:
+    Description: ECR repository URI
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/foodeez-backend'
+    Export:
+      Name: !Sub '${Environment}-ECR-Repository-URI'
+
+  CodeCommitRepositoryName:
+    Description: CodeCommit repository name
+    Value: !GetAtt CodeCommitRepository.Name
+    Export:
+      Name: !Sub '${Environment}-CodeCommit-Repository-Name'
+
+  CodePipelineName:
+    Description: CodePipeline name
+    Value: !Ref CodePipeline
+    Export:
+      Name: !Sub '${Environment}-CodePipeline-Name'
+
+  CloudWatchDashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !GetAtt MonitoringStack.Outputs.CloudWatchDashboardURL
+    Export:
+      Name: !Sub '${Environment}-CloudWatch-Dashboard-URL'
