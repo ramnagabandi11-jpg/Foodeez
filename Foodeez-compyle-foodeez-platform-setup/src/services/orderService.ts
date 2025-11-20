@@ -305,6 +305,53 @@ export const createOrder = async (data: {
     }
   );
 
+  // Queue background jobs
+  // Send order confirmation email
+  emailQueue.add('order-confirmation', {
+    orderId: order.id,
+    customerId: order.customerId,
+    orderNumber: order.orderNumber,
+    customerEmail: customer.email,
+  }, {
+    delay: 1000, // Send after 1 second
+    removeOnComplete: true,
+  });
+
+  // Queue delivery partner assignment
+  orderQueue.add('delivery-partner-assignment', {
+    orderId: order.id,
+    restaurantId: order.restaurantId,
+    deliveryAddress: address,
+  }, {
+    delay: 2 * 60 * 1000, // Start after 2 minutes
+    removeOnComplete: true,
+  });
+
+  // Queue order reminder if not accepted in 10 minutes
+  orderQueue.add('order-reminder', {
+    orderId: order.id,
+    restaurantId: order.restaurantId,
+  }, {
+    delay: 10 * 60 * 1000, // 10 minutes
+    removeOnComplete: true,
+  });
+
+  // Queue analytics processing
+  analyticsQueue.add('order-analytics', {
+    orderId: order.id,
+    orderData: {
+      restaurantId: order.restaurantId,
+      customerId: order.customerId,
+      totalAmount: order.totalAmount,
+      itemCount: orderItems.length,
+      createdAt: order.createdAt,
+      isPremiumDelivery: order.isPremiumDelivery,
+    },
+  }, {
+    delay: 5000, // Process after 5 seconds
+    removeOnComplete: true,
+  });
+
   return order;
 };
 
