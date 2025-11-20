@@ -277,6 +277,33 @@ export const createOrder = async (data: {
   // Increment customer total orders
   await customer.increment('totalOrders');
 
+  // Emit real-time events
+  // Notify restaurant about new order
+  emitNewOrderToRestaurant(restaurantId, {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    customerName: customer.name,
+    customerPhone: customer.phone,
+    totalAmount: order.totalAmount,
+    itemCount: orderItems.length,
+    specialInstructions: order.specialInstructions,
+    estimatedPreparationTime: order.estimatedPreparationTime,
+  });
+
+  // Emit initial order status to customer
+  emitOrderStatusUpdate(
+    order.id,
+    order.customerId,
+    order.restaurantId,
+    null, // No delivery partner assigned yet
+    order.status,
+    {
+      orderNumber: order.orderNumber,
+      estimatedPreparationTime: order.estimatedPreparationTime,
+      totalAmount: order.totalAmount,
+    }
+  );
+
   return order;
 };
 
