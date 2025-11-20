@@ -78,7 +78,7 @@ async function startServer() {
     await initializeServices();
 
     // Initialize application services (queues, search indices, etc.)
-    await initializeServices();
+    await initAppServices();
 
     // Create Express app
     const app = createApp();
