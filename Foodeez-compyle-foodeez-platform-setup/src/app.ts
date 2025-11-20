@@ -88,7 +88,11 @@ export const createApp = (): Express => {
     }
 
     // Handle unhandled errors
-    console.error('Unhandled error:', error);
+    logger.error('Unhandled error:', {
+      message: error.message,
+      stack: error.stack,
+      requestId: (_req as any).requestId,
+    });
     return res.status(500).json({
       success: false,
       error: {
