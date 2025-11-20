@@ -23,6 +23,7 @@ import {
   emitOrderStatusUpdate,
   emitNewOrderToRestaurant,
 } from '@/sockets';
+import { emailQueue, orderQueue, analyticsQueue } from '@/config/queue';
 
 /**
  * Calculate delivery fee based on distance
