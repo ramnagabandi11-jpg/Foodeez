@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { IApiResponse } from '@/types';
 import { AppError } from '@/utils/errors';
+import { logger, requestLogger, initializeMonitoring } from '@/config/monitoring';
 import routes from '@/routes';
 
 export const createApp = (): Express => {
