@@ -362,10 +362,442 @@ export const getSearchSuggestions = async (
   }
 };
 
+/**
+ * Advanced search with AI-powered recommendations
+ */
+export const advancedSearch = async (params: {
+  query?: string;
+  location?: { latitude: number; longitude: number };
+  radiusKm?: number;
+  filters?: {
+    city?: string;
+    cuisineTypes?: string[];
+    minRating?: number;
+    maxPrice?: number;
+    priceRange?: string[];
+    dietary?: string[]; // vegetarian, vegan, gluten-free
+    features?: string[]; // delivery, pickup, reservation
+    openNow?: boolean;
+  };
+  sort?: {
+    field: string;
+    order: 'asc' | 'desc';
+  };
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  results: any[];
+  total: number;
+  aggregations?: any;
+  suggestions?: string[];
+}> => {
+  const {
+    query,
+    location,
+    radiusKm = 10,
+    filters = {},
+    sort,
+    limit = 20,
+    offset = 0,
+  } = params;
+
+  try {
+    const must: any[] = [];
+    const filter: any[] = [];
+
+    // Text search with boosted fields
+    if (query) {
+      must.push({
+        multi_match: {
+          query,
+          fields: [
+            'name^4',
+            'description^2',
+            'cuisine_types^3',
+            'tags^2',
+            'address',
+          ],
+          type: 'best_fields',
+          fuzziness: 'AUTO',
+          operator: 'and',
+        },
+      });
+    } else {
+      must.push({ match_all: {} });
+    }
+
+    // Apply filters
+    if (filters.openNow !== undefined) {
+      filter.push({ term: { is_open: filters.openNow } });
+    }
+
+    if (filters.city) {
+      filter.push({ term: { city: filters.city.toLowerCase() } });
+    }
+
+    if (filters.cuisineTypes && filters.cuisineTypes.length > 0) {
+      filter.push({
+        terms: { cuisine_types: filters.cuisineTypes.map((c) => c.toLowerCase()) },
+      });
+    }
+
+    if (filters.minRating) {
+      filter.push({ range: { average_rating: { gte: filters.minRating } } });
+    }
+
+    if (filters.priceRange && filters.priceRange.length > 0) {
+      filter.push({ terms: { price_range: filters.priceRange } });
+    }
+
+    // Location-based filtering
+    if (location && location.latitude && location.longitude) {
+      filter.push({
+        geo_distance: {
+          distance: `${radiusKm}km`,
+          location: {
+            lat: location.latitude,
+            lon: location.longitude,
+          },
+        },
+      });
+    }
+
+    // Sorting
+    let sortOptions: any[] = [
+      { _score: { order: 'desc' } }, // Default relevance sort
+    ];
+
+    if (sort) {
+      sortOptions.unshift({
+        [sort.field]: { order: sort.order },
+      });
+    } else if (location && location.latitude && location.longitude) {
+      // Sort by distance if location is provided
+      sortOptions.unshift({
+        _geo_distance: {
+          location: {
+            lat: location.latitude,
+            lon: location.longitude,
+          },
+          order: 'asc',
+          unit: 'km',
+        },
+      });
+    }
+
+    // Aggregations for filters
+    const aggs: any = {
+      cuisine_types: {
+        terms: { field: 'cuisine_types', size: 20 },
+      },
+      price_ranges: {
+        terms: { field: 'price_range', size: 5 },
+      },
+      rating_ranges: {
+        range: {
+          field: 'average_rating',
+          ranges: [
+            { key: '4+', to: 5 },
+            { key: '3+', to: 4 },
+            { key: '2+', to: 3 },
+            { key: '1+', to: 2 },
+          ],
+        },
+      },
+    };
+
+    const searchBody: any = {
+      query: {
+        bool: {
+          must,
+          filter,
+        },
+      },
+      sort: sortOptions,
+      from: offset,
+      size: limit,
+      aggs,
+    };
+
+    const response = await elasticsearchClient.search({
+      index: 'restaurants_search',
+      body: searchBody,
+    });
+
+    const results = response.body.hits.hits.map((hit: any) => ({
+      id: hit._id,
+      score: hit._score,
+      distance: hit.sort && hit.sort.length > 1 ? hit.sort[hit.sort.length - 1] : null,
+      ...hit._source,
+    }));
+
+    // Process aggregations
+    const aggregations = {
+      cuisineTypes: response.body.aggregations.cuisine_types.buckets.map((bucket: any) => ({
+        key: bucket.key,
+        count: bucket.doc_count,
+      })),
+      priceRanges: response.body.aggregations.price_ranges.buckets.map((bucket: any) => ({
+        key: bucket.key,
+        count: bucket.doc_count,
+      })),
+      ratingRanges: response.body.aggregations.rating_ranges.buckets.map((bucket: any) => ({
+        key: bucket.key,
+        count: bucket.doc_count,
+      })),
+    };
+
+    // Get search suggestions
+    const suggestions = query ? await getSearchSuggestions(query, 'restaurant') : [];
+
+    return {
+      results,
+      total: response.body.hits.total.value,
+      aggregations,
+      suggestions,
+    };
+  } catch (error) {
+    logger.error('Advanced search failed:', error);
+    return { results: [], total: 0 };
+  }
+};
+
+/**
+ * Trending restaurants based on recent orders and ratings
+ */
+export const getTrendingRestaurants = async (params: {
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+  limit?: number;
+}): Promise<any[]> => {
+  const { city, latitude, longitude, radiusKm = 15, limit = 10 } = params;
+
+  try {
+    const filter: any[] = [{ term: { is_open: true } }];
+
+    if (city) {
+      filter.push({ term: { city: city.toLowerCase() } });
+    }
+
+    if (latitude && longitude) {
+      filter.push({
+        geo_distance: {
+          distance: `${radiusKm}km`,
+          location: { lat: latitude, lon: longitude },
+        },
+      });
+    }
+
+    const response = await elasticsearchClient.search({
+      index: 'restaurants_search',
+      body: {
+        query: {
+          bool: {
+            filter,
+            must: [
+              {
+                function_score: {
+                  query: { match_all: {} },
+                  functions: [
+                    {
+                      gauss: {
+                        average_rating: {
+                          origin: 5,
+                          scale: 1,
+                          offset: 3,
+                        },
+                      },
+                    },
+                    {
+                      gauss: {
+                        updated_at: {
+                          origin: 'now',
+                          scale: '30d',
+                          offset: '7d',
+                        },
+                      },
+                    },
+                  ],
+                  score_mode: 'multiply',
+                  boost_mode: 'replace',
+                },
+              },
+            ],
+          },
+        },
+        sort: [
+          { _score: { order: 'desc' } },
+          { average_rating: { order: 'desc' } },
+        ],
+        size: limit,
+      },
+    });
+
+    return response.body.hits.hits.map((hit: any) => ({
+      id: hit._id,
+      score: hit._score,
+      ...hit._source,
+    }));
+  } catch (error) {
+    logger.error('Failed to get trending restaurants:', error);
+    return [];
+  }
+};
+
+/**
+ * Personalized recommendations based on user preferences
+ */
+export const getPersonalizedRecommendations = async (params: {
+  customerId: string;
+  location?: { latitude: number; longitude: number };
+  limit?: number;
+}): Promise<any[]> => {
+  const { customerId, location, limit = 10 } = params;
+
+  try {
+    // In a real implementation, this would use user's order history,
+    // preferences, and behavior to generate recommendations
+
+    // For now, we'll use a simplified approach based on popular items
+    const filter: any[] = [{ term: { is_open: true } }];
+
+    if (location && location.latitude && location.longitude) {
+      filter.push({
+        geo_distance: {
+          distance: '20km',
+          location: { lat: location.latitude, lon: location.longitude },
+        },
+      });
+    }
+
+    const response = await elasticsearchClient.search({
+      index: 'restaurants_search',
+      body: {
+        query: {
+          bool: {
+            filter,
+            must: [
+              {
+                function_score: {
+                  query: { match_all: {} },
+                  functions: [
+                    {
+                      field_value_factor: {
+                        field: 'average_rating',
+                        modifier: 'log1p',
+                        factor: 2,
+                      },
+                    },
+                    {
+                      random_score: {
+                        seed: customerId,
+                      },
+                    },
+                  ],
+                  score_mode: 'multiply',
+                  boost_mode: 'replace',
+                },
+              },
+            ],
+          },
+        },
+        sort: [{ _score: { order: 'desc' } }],
+        size: limit,
+      },
+    });
+
+    return response.body.hits.hits.map((hit: any) => ({
+      id: hit._id,
+      score: hit._score,
+      ...hit._source,
+    }));
+  } catch (error) {
+    logger.error('Failed to get personalized recommendations:', error);
+    return [];
+  }
+};
+
+/**
+ * Search analytics and insights
+ */
+export const getSearchAnalytics = async (params: {
+  startDate?: Date;
+  endDate?: Date;
+  city?: string;
+}): Promise<any> => {
+  const { startDate, endDate, city } = params;
+
+  try {
+    const boolQuery: any = {};
+
+    if (startDate || endDate) {
+      boolQuery.must = [];
+      if (startDate) {
+        boolQuery.must.push({ range: { created_at: { gte: startDate } } });
+      }
+      if (endDate) {
+        boolQuery.must.push({ range: { created_at: { lte: endDate } } });
+      }
+    }
+
+    if (city) {
+      boolQuery.filter = [{ term: { city: city.toLowerCase() } }];
+    }
+
+    const query = Object.keys(boolQuery).length > 0 ? { bool: boolQuery } : { match_all: {} };
+
+    const response = await elasticsearchClient.search({
+      index: 'restaurants_search',
+      body: {
+        query,
+        aggs: {
+          popular_cuisines: {
+            terms: { field: 'cuisine_types', size: 10 },
+          },
+          price_distribution: {
+            terms: { field: 'price_range', size: 5 },
+          },
+          rating_distribution: {
+            range: {
+              field: 'average_rating',
+              ranges: [
+                { key: 'excellent', to: 5 },
+                { key: 'good', to: 4 },
+                { key: 'average', to: 3 },
+                { key: 'below_average', to: 2 },
+              ],
+            },
+          },
+          total_restaurants: {
+            value_count: { field: 'restaurant_id' },
+          },
+        },
+        size: 0,
+      },
+    });
+
+    return {
+      totalRestaurants: response.body.aggregations.total_restaurants.value,
+      popularCuisines: response.body.aggregations.popular_cuisines.buckets,
+      priceDistribution: response.body.aggregations.price_distribution.buckets,
+      ratingDistribution: response.body.aggregations.rating_distribution.buckets,
+    };
+  } catch (error) {
+    logger.error('Failed to get search analytics:', error);
+    return {};
+  }
+};
+
 export default {
   indexRestaurant,
   indexMenuItem,
   searchRestaurants,
   searchMenuItems,
   getSearchSuggestions,
+  advancedSearch,
+  getTrendingRestaurants,
+  getPersonalizedRecommendations,
+  getSearchAnalytics,
 };
