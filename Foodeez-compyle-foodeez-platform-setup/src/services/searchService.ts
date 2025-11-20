@@ -1,6 +1,19 @@
 import { elasticsearchClient } from '@/config/elasticsearch';
 import { Restaurant } from '@/models/postgres';
 import { MenuItem } from '@/models/mongodb';
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  defaultMeta: { service: 'search-service' },
+  transports: [
+    new winston.transports.File({ filename: 'search-error.log', level: 'error' }),
+    new winston.transports.Console({
+      format: winston.format.simple()
+    })
+  ],
+});
 
 /**
  * Index restaurant in Elasticsearch
