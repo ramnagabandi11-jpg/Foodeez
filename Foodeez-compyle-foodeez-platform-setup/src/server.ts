@@ -104,36 +104,8 @@ async function startServer() {
       `);
     });
 
-    // Graceful shutdown
-    const shutdown = async (signal: string) => {
-      logger.info(`\nReceived ${signal}, starting graceful shutdown...`);
-
-      server.close(async () => {
-        logger.info('Server closed');
-
-        try {
-          await disconnectDatabase();
-          await disconnectMongoDB();
-          await disconnectRedis();
-          await disconnectElasticsearch();
-
-          logger.info('All services disconnected');
-          process.exit(0);
-        } catch (error) {
-          logger.error('Error during shutdown:', error);
-          process.exit(1);
-        }
-      });
-
-      // Force shutdown after 10 seconds
-      setTimeout(() => {
-        logger.error('Forcing shutdown after timeout');
-        process.exit(1);
-      }, 10000);
-    };
-
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
+    // Setup graceful shutdown handlers
+    setupGracefulShutdown(server);
 
     // Unhandled rejection
     process.on('unhandledRejection', (reason, promise) => {
