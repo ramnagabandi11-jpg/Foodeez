@@ -340,6 +340,23 @@ export const updateOrderStatus = async (
 
   await order.update(updates);
 
+  // Emit real-time order status update
+  emitOrderStatusUpdate(
+    order.id,
+    order.customerId,
+    order.restaurantId,
+    order.deliveryPartnerId,
+    status,
+    {
+      orderNumber: order.orderNumber,
+      estimatedPreparationTime: order.estimatedPreparationTime,
+      ...(status === 'restaurant_accepted' && { restaurantAcceptedAt: order.restaurantAcceptedAt }),
+      ...(status === 'picked_up' && { pickedUpAt: order.pickedUpAt }),
+      ...(status === 'delivered' && { deliveredAt: order.deliveredAt, actualDeliveryTime: order.actualDeliveryTime }),
+      ...(metadata && { metadata }),
+    }
+  );
+
   // Award loyalty points on delivery
   if (status === 'delivered') {
     const customer = await Customer.findByPk(order.customerId);
