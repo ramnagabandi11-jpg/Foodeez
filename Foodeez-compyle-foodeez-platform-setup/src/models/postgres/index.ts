@@ -126,6 +126,7 @@ AdminUser.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 AdminUser.hasMany(SupportTicket, { foreignKey: 'assignedTo', as: 'assignedTickets' });
 AdminUser.hasMany(AdminActivityLog, { foreignKey: 'adminUserId', as: 'activityLogs' });
 AdminUser.hasMany(FieldVisit, { foreignKey: 'areaManagerId', as: 'fieldVisits' });
+AdminUser.hasMany(AdminLog, { foreignKey: 'adminId', as: 'adminLogs' });
 
 // AdminActivityLog associations
 AdminActivityLog.belongsTo(AdminUser, { foreignKey: 'adminUserId', as: 'adminUser' });
