@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['localhost', 'foodeez.com', 'api.foodeez.com', 'cdn.foodeez.com'],
+    domains: ['localhost', 'foodeez.com', 'api.foodeez.com', 'cdn.foodeez.com', '18.60.53.146'],
     formats: ['image/webp', 'image/avif'],
   },
   env: {
