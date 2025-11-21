@@ -251,6 +251,34 @@ export const getAllReviewsController = asyncHandler(async (req: Request, res: Re
   });
 });
 
+/**
+ * Upload review photos
+ */
+export const uploadReviewPhotosController = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const files = req.files as Express.Multer.File[];
+
+  if (!files || files.length === 0) {
+    return res.status(StatusCode.BAD_REQUEST).json({
+      success: false,
+      message: 'No photos uploaded',
+    });
+  }
+
+  // Generate URLs for uploaded files
+  const photoUrls = files.map((file) => {
+    return `/uploads/reviews/${file.filename}`;
+  });
+
+  res.status(StatusCode.OK).json({
+    success: true,
+    message: 'Photos uploaded successfully',
+    data: {
+      photoUrls,
+      count: photoUrls.length,
+    },
+  });
+});
+
 export default {
   createReviewController,
   getRestaurantReviewsController,
@@ -259,4 +287,5 @@ export default {
   deleteReviewController,
   getRestaurantRatingSummaryController,
   getAllReviewsController,
+  uploadReviewPhotosController,
 };
