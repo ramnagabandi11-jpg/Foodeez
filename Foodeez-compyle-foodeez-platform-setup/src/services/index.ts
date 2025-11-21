@@ -6,6 +6,7 @@ export * as notificationService from './notificationService';
 export * as searchService from './searchService';
 export * as deliveryService from './deliveryService';
 export * as reviewService from './reviewService';
+export * as adminService from './adminService';
 
 export default {
   authService: require('./authService').default,
@@ -15,4 +16,5 @@ export default {
   searchService: require('./searchService').default,
   deliveryService: require('./deliveryService').default,
   reviewService: require('./reviewService').default,
+  adminService: require('./adminService').default,
 };
