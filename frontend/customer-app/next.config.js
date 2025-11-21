@@ -7,9 +7,10 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/v1',
-    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://18.60.53.146:3000/v1',
+    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || 'http://18.60.53.146:3000',
     NEXT_PUBLIC_RAZORPAY_KEY: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+    NEXT_PUBLIC_APP_ENV: process.env.NODE_ENV || 'production',
   },
   async rewrites() {
     return [
