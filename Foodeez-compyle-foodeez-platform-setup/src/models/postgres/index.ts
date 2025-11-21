@@ -196,6 +196,8 @@ export default {
   OTPVerification,
   AdminUser,
   AdminActivityLog,
+  AdminLog,
   FieldVisit,
   RestaurantSubscription,
+  RatingSummary,
 };
