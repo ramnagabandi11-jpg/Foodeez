@@ -8,8 +8,10 @@ import {
   deleteReviewController,
   getRestaurantRatingSummaryController,
   getAllReviewsController,
+  uploadReviewPhotosController,
 } from '@/controllers/reviewController';
 import { authenticateToken } from '@/middleware/auth';
+import { uploadReviewPhotos } from '@/middleware/upload';
 
 const router = Router();
 
