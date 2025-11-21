@@ -1,0 +1,35 @@
+{
+  "javascript": {
+    "framework": "react",
+    "src": ".",
+    "builder": "@aws-amplify/amplify-frontend-react",
+    "cache": {
+      "maxAge": 2592000,
+      "resources": {
+        "js": {
+          "maxAge": 31536000,
+          "resources": "*.js",
+          "output": ""
+        },
+        "css": {
+          "maxAge": 31536000,
+          "resources": "*.css",
+          "output": ""
+        },
+        "media": {
+          "maxAge": 31536000,
+          "resources": "media/**",
+          "output": "media/"
+        },
+        "font": {
+          "maxAge": 31536000,
+          "resources": "static/fonts/**",
+          "output": "static/fonts/"
+        }
+      }
+    }
+  },
+  "sourceRoot": "src",
+  "distributionDir": ".next",
+  "buildCommand": "npm run build"
+}
