@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFront distributions for Foodeez frontend applications'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'production'
+    AllowedValues: ['production', 'staging']
+
+  BackendApiUrl:
+    Type: String
+    Default: 'http://18.60.53.146:3000'
+
+Resources:
+  # SSL Certificate for custom domains
+  FoodeezCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: '*.foodeez.com'
+      SubjectAlternativeNames:
+        - 'foodeez.com'
+        - 'app.foodeez.com'
+        - 'restaurant.foodeez.com'
+        - 'admin.foodeez.com'
+      ValidationMethod: DNS
+
+  # S3 Buckets
+  CustomerAppBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: foodeez-customer-app
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: 404.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: ['GET', 'HEAD']
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  RestaurantPortalBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: foodeez-restaurant-portal
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: 404.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: ['GET', 'HEAD']
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  AdminDashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: foodeez-admin-dashboard
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: 404.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: ['GET', 'HEAD']
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  # CloudFront Distribution for Customer App
+  CustomerAppDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt CustomerAppBucket.DomainName
+            Id: S3-customer-app
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+              OriginAccessIdentityId: ''
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: S3-customer-app
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingOptimized
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Aliases:
+          - app.foodeez.com
+        ViewerCertificate:
+          AcmCertificateArn: !Ref FoodeezCertificate
+          MinimumProtocolVersion: TLSv1.2_2019
+          SslSupportMethod: sni-only
+        DefaultRootObject: index.html
+
+  # CloudFront Distribution for Restaurant Portal
+  RestaurantPortalDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt RestaurantPortalBucket.DomainName
+            Id: S3-restaurant-portal
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: S3-restaurant-portal
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Aliases:
+          - restaurant.foodeez.com
+        ViewerCertificate:
+          AcmCertificateArn: !Ref FoodeezCertificate
+          MinimumProtocolVersion: TLSv1.2_2019
+          SslSupportMethod: sni-only
+        DefaultRootObject: index.html
+
+  # CloudFront Distribution for Admin Dashboard
+  AdminDashboardDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt AdminDashboardBucket.DomainName
+            Id: S3-admin-dashboard
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: S3-admin-dashboard
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Aliases:
+          - admin.foodeez.com
+        ViewerCertificate:
+          AcmCertificateArn: !Ref FoodeezCertificate
+          MinimumProtocolVersion: TLSv1.2_2019
+          SslSupportMethod: sni-only
+        DefaultRootObject: index.html
+
+Outputs:
+  CustomerAppDomainName:
+    Description: 'Customer app domain name'
+    Value: !GetAtt CustomerAppDistribution.DomainName
+
+  RestaurantPortalDomainName:
+    Description: 'Restaurant portal domain name'
+    Value: !GetAtt RestaurantPortalDistribution.DomainName
+
+  AdminDashboardDomainName:
+    Description: 'Admin dashboard domain name'
+    Value: !GetAtt AdminDashboardDistribution.DomainName
+
+  CustomerAppDistributionId:
+    Description: 'Customer app CloudFront distribution ID'
+    Value: !Ref CustomerAppDistribution
+
+  RestaurantPortalDistributionId:
+    Description: 'Restaurant portal CloudFront distribution ID'
+    Value: !Ref RestaurantPortalDistribution
+
+  AdminDashboardDistributionId:
+    Description: 'Admin dashboard CloudFront distribution ID'
+    Value: !Ref AdminDashboardDistribution
+
+Tags:
+  Project: Foodeez
+  Environment: !Ref Environment
+  Type: Frontend
