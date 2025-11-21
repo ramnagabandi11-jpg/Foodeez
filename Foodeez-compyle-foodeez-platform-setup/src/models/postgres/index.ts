@@ -131,6 +131,13 @@ AdminUser.hasMany(AdminLog, { foreignKey: 'adminId', as: 'adminLogs' });
 // AdminActivityLog associations
 AdminActivityLog.belongsTo(AdminUser, { foreignKey: 'adminUserId', as: 'adminUser' });
 
+// AdminLog associations
+AdminLog.belongsTo(User, { foreignKey: 'adminId', as: 'adminUser' });
+
+// RatingSummary associations
+RatingSummary.belongsTo(Restaurant, { foreignKey: 'restaurantId', as: 'restaurant' });
+Restaurant.hasOne(RatingSummary, { foreignKey: 'restaurantId', as: 'ratingSummary' });
+
 // FieldVisit associations
 FieldVisit.belongsTo(AdminUser, { foreignKey: 'areaManagerId', as: 'areaManager' });
 FieldVisit.belongsTo(Restaurant, { foreignKey: 'restaurantId', as: 'restaurant' });
