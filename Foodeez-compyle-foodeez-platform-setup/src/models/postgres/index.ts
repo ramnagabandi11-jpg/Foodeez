@@ -169,8 +169,10 @@ export {
   OTPVerification,
   AdminUser,
   AdminActivityLog,
+  AdminLog,
   FieldVisit,
   RestaurantSubscription,
+  RatingSummary,
 };
 
 export default {
