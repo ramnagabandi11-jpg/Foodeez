@@ -19,8 +19,10 @@ import SupportTicket from './SupportTicket';
 import OTPVerification from './OTPVerification';
 import AdminUser from './AdminUser';
 import AdminActivityLog from './AdminActivityLog';
+import AdminLog from './AdminLog';
 import FieldVisit from './FieldVisit';
 import RestaurantSubscription from './RestaurantSubscription';
+import RatingSummary from './RatingSummary';
 
 // Define associations
 // User associations
