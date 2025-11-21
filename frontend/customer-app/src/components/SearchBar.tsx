@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect as React_useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { SearchIcon, XIcon } from '@heroicons/react/outline';
 import { useDebounce } from '@/hooks/useDebounce';
