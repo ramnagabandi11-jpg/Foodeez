@@ -274,6 +274,19 @@ export const createOrder = async (data: {
   // Increment customer total orders
   await customer.increment('totalOrders');
 
+  // Emit new order to restaurant via Socket.io
+  const orderWithRelations = await Order.findByPk(order.id, {
+    include: [
+      { model: Customer, as: 'customer' },
+      { model: OrderItem, as: 'items' },
+      { model: Address, as: 'deliveryAddress' },
+    ],
+  });
+
+  if (orderWithRelations) {
+    emitNewOrderToRestaurant(restaurantId, orderWithRelations.toJSON());
+  }
+
   return order;
 };
 
