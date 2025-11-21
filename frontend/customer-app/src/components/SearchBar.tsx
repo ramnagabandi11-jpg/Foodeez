@@ -94,7 +94,7 @@ export default function SearchBar({
     }
   };
 
-  React.useEffect(() => {
+  React_useEffect(() => {
     if (debouncedQuery) {
       handleSearch(debouncedQuery);
     }
