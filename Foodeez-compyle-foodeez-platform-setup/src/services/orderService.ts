@@ -343,6 +343,16 @@ export const updateOrderStatus = async (
     }
   }
 
+  // Emit real-time status update via Socket.io
+  emitOrderStatusUpdate(
+    order.id,
+    order.customerId,
+    order.restaurantId,
+    order.deliveryPartnerId,
+    status,
+    metadata
+  );
+
   return order;
 };
 
