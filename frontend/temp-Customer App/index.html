@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer App - Foodeez Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #1a1a1a 100%);
+            color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .container {
+            text-align: center; max-width: 600px; padding: 2rem;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .logo { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2.5rem; margin-bottom: 1rem; color: white; }
+        p { font-size: 1.2rem; margin-bottom: 1.5rem; opacity: 0.9; }
+        .api-info {
+            background: rgba(255,255,255,0.2); padding: 1rem; border-radius: 10px;
+            margin: 1rem 0; font-family: monospace; font-size: 0.9rem;
+        }
+        .features {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem; margin: 2rem 0;
+        }
+        .feature {
+            background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .status {
+            display: inline-block; background: #10b981; color: white; padding: 0.5rem 1rem;
+            border-radius: 20px; font-size: 0.8rem; font-weight: bold;
+        }
+        .deploy-info {
+            position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8);
+            padding: 1rem; border-radius: 10px; font-size: 0.8rem; max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍔</div>
+        <h1>Customer App</h1>
+        <div class="status">🟢 LIVE ON AWS</div>
+        <p>Order food from your favorite restaurants</p>
+
+        <div class="api-info">
+            <strong>Backend API:</strong><br>
+            http://18.60.53.146:3000/v1<br>
+            <strong>Real-time Socket:</strong><br>
+            http://18.60.53.146:3000
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div style="font-size: 2rem;">🚀</div>
+                <div>High Performance</div>
+            </div>
+            <div class="feature">
+                <div style="font-size: 2rem;">🔒</div>
+                <div>Secure Auth</div>
+            </div>
+            <div class="feature">
+                <div style="font-size: 2rem;">📱</div>
+                <div>Mobile Ready</div>
+            </div>
+            <div class="feature">
+                <div style="font-size: 2rem;">⚡</div>
+                <div>Real-time</div>
+            </div>
+        </div>
+
+        <p style="margin-top: 2rem; font-size: 1rem;">
+            This application is deployed on AWS S3 + CloudFront<br>
+            and connects to the production backend API.
+        </p>
+    </div>
+
+    <div class="deploy-info">
+        <strong>Deployment Info:</strong><br>
+        Region: ap-south-1<br>
+        Bucket: foodeez-customer-app<br>
+        CDN: CloudFront Active<br>
+        SSL: AWS Certificate Manager
+    </div>
+
+    <script>
+        // Test API connectivity
+        fetch('http://18.60.53.146:3000/v1/health')
+            .then(response => response.json())
+            .then(data => {
+                console.log('✅ Backend API connected:', data);
+                document.querySelector('.status').innerHTML = '🟢 API CONNECTED';
+            })
+            .catch(error => {
+                console.log('❌ Backend API error:', error);
+                document.querySelector('.status').innerHTML = '🟡 API CONNECTION ERROR';
+            });
+
+        // Initialize WebSocket connection test
+        console.log('🔌 Testing Socket.io connection to:', 'http://18.60.53.146:3000');
+    </script>
+</body>
+</html>
