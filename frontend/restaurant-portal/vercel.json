@@ -1,0 +1,20 @@
+{
+  "name": "foodeez-restaurant-portal",
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "http://18.60.53.146:3000/v1",
+    "NEXT_PUBLIC_SOCKET_URL": "http://18.60.53.146:3000",
+    "NEXT_PUBLIC_APP_ENV": "production"
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["sin1"]
+}
