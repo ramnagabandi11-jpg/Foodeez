@@ -237,4 +237,15 @@ router.get(
   getAllReviewsController
 );
 
+/**
+ * @route   POST /api/v1/reviews/upload-photos
+ * @desc    Upload review photos
+ * @access  Private (Customer only)
+ */
+router.post(
+  '/upload-photos',
+  uploadReviewPhotos.array('photos', 5),
+  uploadReviewPhotosController
+);
+
 export default router;
