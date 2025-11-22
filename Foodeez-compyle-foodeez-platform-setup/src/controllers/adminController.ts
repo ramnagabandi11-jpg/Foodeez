@@ -873,5 +873,4 @@ export default {
   getDeliveryPartners,
   getAnalytics,
   sendPromotionalEmail,
->>>>>>> origin/compyle/document-technologies-stack
 };
