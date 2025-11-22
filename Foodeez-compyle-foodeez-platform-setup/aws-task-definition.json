@@ -1,0 +1,160 @@
+{
+  "family": "foodeez-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::{{aws_account_id}}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::{{aws_account_id}}:role/foodeez-backend-task-role",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "foodeez-backend",
+      "image": "{{aws_account_id}}.dkr.ecr.{{aws_region}}.amazonaws.com/foodeez-backend:{{image_tag}}",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-db-host"
+        },
+        {
+          "name": "DB_PORT",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-db-port"
+        },
+        {
+          "name": "DB_NAME",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-db-name"
+        },
+        {
+          "name": "DB_USER",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-db-user"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-db-password"
+        },
+        {
+          "name": "MONGODB_URI",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-mongodb-uri"
+        },
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-redis-host"
+        },
+        {
+          "name": "REDIS_PORT",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-redis-port"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-redis-password"
+        },
+        {
+          "name": "ELASTICSEARCH_HOST",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-elasticsearch-host"
+        },
+        {
+          "name": "ELASTICSEARCH_PORT",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-elasticsearch-port"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-jwt-secret"
+        },
+        {
+          "name": "RAZORPAY_KEY_ID",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-razorpay-key-id"
+        },
+        {
+          "name": "RAZORPAY_KEY_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-razorpay-key-secret"
+        },
+        {
+          "name": "TWILIO_ACCOUNT_SID",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-twilio-account-sid"
+        },
+        {
+          "name": "TWILIO_AUTH_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-twilio-auth-token"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-aws-access-key-id"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-aws-secret-access-key"
+        },
+        {
+          "name": "AWS_REGION",
+          "valueFrom": "arn:aws:secretsmanager:{{aws_region}}:{{aws_account_id}}:secret:foodeez-aws-region"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/foodeez-backend",
+          "awslogs-region": "{{aws_region}}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "readonlyRootFilesystem": false,
+      "dockerLabels": {
+        "com.amazonaws.ecs.task-arn": "arn:aws:ecs:{{aws_region}}:{{aws_account_id}}:task/foodeez-backend",
+        "com.amazonaws.ecs.cluster": "foodeez-cluster",
+        "environment": "production"
+      }
+    }
+  ],
+  "volumes": [],
+  "placementConstraints": [],
+  "tags": [
+    {
+      "key": "Name",
+      "value": "foodeez-backend"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Project",
+      "value": "foodeez"
+    }
+  ]
+}

@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foodeez Platform - Security Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Environment name
+
+  AllowedIPRanges:
+    Type: List<String>
+    Default: [0.0.0.0/0]
+    Description: Allowed IP ranges for access (CIDR notation)
+
+Resources:
+  # AWS WAF Web ACL
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub '${Environment}-foodeez-waf'
+      Scope: CLOUDFRONT
+      Description: Web ACL for Foodeez platform
+      DefaultAction:
+        Allow: {}
+      Rules:
+        - Name: BlockCommonAttacks
+          Priority: 1
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: BlockCommonAttacks
+
+        - Name: BlockSQLInjection
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: BlockSQLInjection
+
+        - Name: BlockXSS
+          Priority: 3
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: BlockXSS
+
+        - Name: RateLimit
+          Priority: 4
+          Statement:
+            RateBasedStatement:
+              Limit: 2000
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRule
+
+        - Name: IPAllowList
+          Priority: 5
+          Statement:
+            IPSetReferenceStatement:
+              ARN: !GetAtt IPSet.Arn
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: IPAllowListRule
+
+  # IP Set for WAF
+  IPSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Name: !Sub '${Environment}-foodeez-allowlist'
+      Scope: CLOUDFRONT
+      Description: IP allowlist for Foodeez platform
+      IPAddressVersion: IPV4
+      Addresses: !Ref AllowedIPRanges
+
+  # AWS Shield Advanced (requires enablement)
+  ShieldProtection:
+    Type: AWS::Shield::Protection
+    Properties:
+      Name: !Sub '${Environment}-foodeez-shield'
+      ResourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # CloudFront Distribution (if not defined elsewhere)
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: CreateCloudFront
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: ALBOrigin
+            DomainName: !Sub '${Environment}-foodeez-alb-${AWS::AccountId}.elb.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          TargetOriginId: ALBOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          TrustedSigners:
+            - !Ref AWS::AccountId
+          ForwardedValues:
+            QueryString: true
+            Cookies:
+              Forward: all
+          MinTTL: 0
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        WebACLId: !Ref WebACL
+
+  # AWS KMS Key for encryption
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub 'Encryption key for ${Environment} Foodeez platform'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: kms:*
+            Resource: '*'
+          - Sid: Allow CloudWatch Logs
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action:
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+          - Sid: Allow S3
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-encryption-key'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # KMS Key Alias
+  EncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${Environment}-foodeez'
+      TargetKeyId: !Ref EncryptionKey
+
+  # S3 Bucket for application assets
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-foodeez-assets-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: aws:kms
+            KMSMasterKeyID: !Ref EncryptionKey
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref EncryptionKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref AssetLogGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-assets'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket Policy
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssetsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !Sub 'arn:aws:s3:::${AssetsBucket}/*'
+              - !Sub 'arn:aws:s3:::${AssetsBucket}'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+          - Sid: AllowCloudFrontService
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub 'arn:aws:s3:::${AssetsBucket}/*'
+
+  # S3 Bucket for logs
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-foodeez-logs-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
+            Filter:
+              Prefix: logs/
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-logs'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudTrail for API logging
+  CloudTrail:
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      TrailName: !Sub '${Environment}-foodeez-cloudtrail'
+      S3BucketName: !Ref LogsBucket
+      S3KeyPrefix: cloudtrail-logs/
+      IncludeGlobalServiceEvents: true
+      IsMultiRegionTrail: true
+      EnableLogFileValidation: true
+      CloudWatchLogsLogGroupArn: !GetAtt CloudTrailLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt CloudTrailRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-cloudtrail'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudTrail Log Group
+  CloudTrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/cloudtrail/${Environment}-foodeez'
+      RetentionInDays: 90
+
+  # CloudTrail IAM Role
+  CloudTrailRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-cloudtrail-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCloudTrailServicePolicy
+
+  # Asset Log Group
+  AssetLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/s3/${Environment}-foodeez-assets'
+      RetentionInDays: 30
+
+  # AWS Config
+  ConfigRecorder:
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      Name: !Sub '${Environment}-foodeez-config-recorder'
+      RoleARN: !GetAtt ConfigRole.Arn
+      RecordingGroup:
+        AllSupported: true
+
+  # Config Delivery Channel
+  ConfigDeliveryChannel:
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      Name: !Sub '${Environment}-foodeez-config-delivery'
+      S3BucketName: !Ref LogsBucket
+      S3KeyPrefix: config-logs/
+
+  # Config Role
+  ConfigRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-config-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWS_ConfigRole
+
+  # Security Audit Role
+  SecurityAuditRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-foodeez-security-audit'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:user/security-admin'
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/SecurityAudit
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+
+Conditions:
+  CreateCloudFront: !Equals [!Ref Environment, 'production']
+
+Outputs:
+  WebACLArn:
+    Description: WAF WebACL ARN
+    Value: !Ref WebACL
+    Export:
+      Name: !Sub '${Environment}-WAF-WebACL-ARN'
+
+  EncryptionKeyArn:
+    Description: KMS encryption key ARN
+    Value: !GetAtt EncryptionKey.Arn
+    Export:
+      Name: !Sub '${Environment}-Encryption-Key-ARN'
+
+  AssetsBucketName:
+    Description: S3 assets bucket name
+    Value: !Ref AssetsBucket
+    Export:
+      Name: !Sub '${Environment}-Assets-Bucket-Name'
+
+  LogsBucketName:
+    Description: S3 logs bucket name
+    Value: !Ref LogsBucket
+    Export:
+      Name: !Sub '${Environment}-Logs-Bucket-Name'
+
+  CloudTrailName:
+    Description: CloudTrail name
+    Value: !Ref CloudTrail
+    Export:
+      Name: !Sub '${Environment}-CloudTrail-Name'
+
+  SecurityAuditRoleArn:
+    Description: Security audit role ARN
+    Value: !GetAtt SecurityAuditRole.Arn
+    Export:
+      Name: !Sub '${Environment}-Security-Audit-Role-ARN'

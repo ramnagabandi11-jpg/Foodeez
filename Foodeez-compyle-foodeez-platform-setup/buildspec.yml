@@ -1,0 +1,105 @@
+version: 0.2
+
+# Environment variables available to all phases
+env:
+  variables:
+    NODE_ENV: "production"
+    AWS_DEFAULT_REGION: "us-east-1"
+  secrets-manager:
+    AWS_ACCOUNT_ID: "arn:aws:secretsmanager:${AWS_DEFAULT_REGION}:${AWS_ACCOUNT_ID}:secret:foodeez-aws-account-id"
+    ECR_REPOSITORY_NAME: "arn:aws:secretsmanager:${AWS_DEFAULT_REGION}:${AWS_ACCOUNT_ID}:secret:foodeez-ecr-repository-name"
+
+# Phases of the build
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo Setting repository variables...
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - echo Repository URI is $REPOSITORY_URI
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo Image tag will be $IMAGE_TAG
+      - echo Installing Node.js dependencies...
+      - npm --version
+      - node --version
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - echo Running tests...
+      - npm ci --only=production
+      - npm run typecheck
+      - npm run lint
+      - npm run test
+      - echo Building application for production...
+      - npm run build
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"foodeez-backend","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo Creating task definition file...
+      - sed -i "s/{{aws_account_id}}/$AWS_ACCOUNT_ID/g; s/{{aws_region}}/$AWS_DEFAULT_REGION/g; s/{{image_tag}}/$IMAGE_TAG/g" aws-task-definition.json
+      - echo Running security scan on container image...
+      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:/root/.cache/ aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL --format json --output /root/.cache/trivy-report.json $REPOSITORY_URI:$IMAGE_TAG
+      - echo Generating build report...
+      - cat imagedefinitions.json
+
+# Artifacts to be uploaded
+artifacts:
+  files:
+    - imagedefinitions.json
+    - aws-task-definition.json
+    - appspec.yml
+    - scripts/**
+    - '**/*.json'
+  name: foodeez-backend-artifacts
+  discard-paths: no
+
+# Cache configuration
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - 'dist/**/*'
+    - '.npm/**/*'
+
+# Reports for test results
+reports:
+  test-reports:
+    files:
+      - 'coverage/lcov.info'
+      - 'test-results.xml'
+    name: foodeez-test-reports
+    file-format: JunitXml
+
+# Environment configuration for different environments
+batch:
+  fast-fail: false
+  build-graph:
+    - identifier: build-test
+      buildspec: buildspec.yml
+      env:
+        compute-type: BUILD_GENERAL1_SMALL
+        image: aws/codebuild/standard:7.0
+        type: LINUX_CONTAINER
+
+# Additional configuration for production builds
+hooks:
+  pre-build:
+    - location: scripts/pre-build.sh
+      run-as: root
+      verbose: true
+  post-build:
+    - location: scripts/post-build.sh
+      run-as: root
+      verbose: true

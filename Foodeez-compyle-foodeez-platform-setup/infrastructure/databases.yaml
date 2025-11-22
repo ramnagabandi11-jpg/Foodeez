@@ -1,0 +1,409 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foodeez Platform - Database Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Environment name
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for database deployment
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for RDS
+
+  DatabaseSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Database subnet IDs for isolated databases
+
+  DatabaseSubnetGroupName:
+    Type: String
+    Description: Database subnet group name
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.medium
+    AllowedValues: [db.t3.micro, db.t3.small, db.t3.medium, db.t3.large, db.r5.large, db.r5.xlarge]
+    Description: Database instance class
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 100
+    MinValue: 20
+    MaxValue: 1000
+    Description: Initial database storage (GB)
+
+  MultiAZ:
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+    Description: Enable Multi-AZ deployment
+
+Resources:
+  # PostgreSQL RDS Instance
+  PostgreSQLSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for PostgreSQL RDS
+      SubnetIds: !Ref DatabaseSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-postgresql-subnet-group'
+        - Key: Environment
+          Value: !Ref Environment
+
+  PostgreSQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for PostgreSQL RDS
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-postgresql-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  PostgreSQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub '${Environment}-foodeez-postgresql'
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: postgres
+      EngineVersion: '15.4'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp2
+      StorageEncrypted: true
+      MultiAZ: !Ref MultiAZ
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      DBSubnetGroupName: !Ref PostgreSQLSubnetGroup
+      VPCSecurityGroups:
+        - !Ref PostgreSQLSecurityGroup
+      DeletionPolicy: Snapshot
+      DeleteAutomatedBackups: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-postgresql'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DocumentDB Cluster
+  DocumentDBSubnetGroup:
+    Type: AWS::DocDB::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for DocumentDB cluster
+      SubnetIds: !Ref DatabaseSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-documentdb-subnet-group'
+        - Key: Environment
+          Value: !Ref Environment
+
+  DocumentDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for DocumentDB cluster
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 27017
+          ToPort: 27017
+          SourceSecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-documentdb-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  DocumentDBCluster:
+    Type: AWS::DocDB::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub '${Environment}-foodeez-documentdb'
+      MasterUsername: foodeez_user
+      MasterUserPassword: !Ref DatabaseSecret
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      DBSubnetGroupName: !Ref DocumentDBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DocumentDBSecurityGroup
+      StorageEncrypted: true
+      DeletionPolicy: Snapshot
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-documentdb'
+        - Key: Environment
+          Value: !Ref Environment
+
+  DocumentDBInstance1:
+    Type: AWS::DocDB::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DocumentDBCluster
+      DBInstanceIdentifier: !Sub '${Environment}-foodeez-documentdb-instance-1'
+      DBInstanceClass: !Ref DBInstanceClass
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-documentdb-instance-1'
+        - Key: Environment
+          Value: !Ref Environment
+
+  DocumentDBInstance2:
+    Type: AWS::DocDB::DBInstance
+    Condition: MultiAZEnabled
+    Properties:
+      DBClusterIdentifier: !Ref DocumentDBCluster
+      DBInstanceIdentifier: !Sub '${Environment}-foodeez-documentdb-instance-2'
+      DBInstanceClass: !Ref DBInstanceClass
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-documentdb-instance-2'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ElastiCache Redis Cluster
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for ElastiCache Redis
+      SubnetIds: !Ref PrivateSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-redis-subnet-group'
+        - Key: Environment
+          Value: !Ref Environment
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache Redis
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+        - IpProtocol: tcp
+          FromPort: 6380
+          ToPort: 6380
+          SourceSecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-redis-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  RedisReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: !Sub '${Environment}-foodeez-redis'
+      Description: Redis cluster for Foodeez platform
+      NodeType: cache.t3.micro
+      NumCacheClusters: !If [MultiAZEnabled, 2, 1]
+      AutomaticFailoverEnabled: !If [MultiAZEnabled, true, false]
+      MultiAZEnabled: !If [MultiAZEnabled, true, false]
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      SecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      AuthToken: !Ref RedisAuthToken
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-redis'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # OpenSearch Service (Elasticsearch)
+  OpenSearchSubnetGroup:
+    Type: AWS::OpenSearchService::VPCEndpoint
+    Properties:
+      DomainName: !Ref OpenSearchDomain
+      SubnetIds: !Ref PrivateSubnetIds
+      SecurityGroupIds:
+        - !Ref OpenSearchSecurityGroup
+      VpcOptions:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref OpenSearchSecurityGroup
+
+  OpenSearchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for OpenSearch Service
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !GetAtt ApplicationSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-opensearch-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: !Sub '${Environment}-foodeez-opensearch'
+      EngineVersion: 'OpenSearch_2.5'
+      ClusterConfig:
+        InstanceCount: !If [MultiAZEnabled, 3, 1]
+        InstanceType: t3.small.search
+        DedicatedMasterEnabled: !If [MultiAZEnabled, true, false]
+        DedicatedMasterType: !If [MultiAZEnabled, t3.small.search, !Ref "AWS::NoValue"]
+        DedicatedMasterCount: !If [MultiAZEnabled, 3, !Ref "AWS::NoValue"]
+        ZoneAwarenessEnabled: !If [MultiAZEnabled, true, false]
+        MultiAZWithStandbyEnabled: !If [MultiAZEnabled, true, false]
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 100
+        VolumeType: gp3
+      EncryptionAtRestOptions:
+        Enabled: true
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+        TLSSecurityPolicy: Policy-Min-TLS-1-2-2019-07
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action: 'es:*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${Environment}-foodeez-opensearch/*'
+            Condition:
+              IpAddress:
+                aws:SourceIp:
+                  - 10.0.0.0/8  # VPC CIDR range
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-opensearch'
+        - Key: Environment
+          Value: !Ref Environment
+      DeletionPolicy: Snapshot
+
+  # Application Security Group
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for application services
+      VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-app-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Secrets Manager for Database Credentials
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${Environment}-foodeez-database-credentials'
+      Description: Database credentials for Foodeez platform
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "foodeez_user"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-db-credentials'
+        - Key: Environment
+          Value: !Ref Environment
+
+  RedisAuthToken:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${Environment}-foodeez-redis-auth-token'
+      Description: Redis auth token for ElastiCache
+      GenerateSecretString:
+        SecretStringTemplate: '{"auth_token": ""}'
+        GenerateStringKey: auth_token
+        PasswordLength: 64
+        ExcludePunctuation: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-foodeez-redis-token'
+        - Key: Environment
+          Value: !Ref Environment
+
+Conditions:
+  MultiAZEnabled: !Equals [!Ref MultiAZ, true]
+
+Outputs:
+  PostgreSQLEndpoint:
+    Description: PostgreSQL RDS endpoint
+    Value: !GetAtt PostgreSQLDB.Endpoint.Address
+    Export:
+      Name: !Sub '${Environment}-PostgreSQL-Endpoint'
+
+  PostgreSQLPort:
+    Description: PostgreSQL port
+    Value: !GetAtt PostgreSQLDB.Endpoint.Port
+    Export:
+      Name: !Sub '${Environment}-PostgreSQL-Port'
+
+  DocumentDBEndpoint:
+    Description: DocumentDB cluster endpoint
+    Value: !GetAtt DocumentDBCluster.Endpoint
+    Export:
+      Name: !Sub '${Environment}-DocumentDB-Endpoint'
+
+  DocumentDBPort:
+    Description: DocumentDB port
+    Value: 27017
+    Export:
+      Name: !Sub '${Environment}-DocumentDB-Port'
+
+  RedisEndpoint:
+    Description: Redis replication group primary endpoint
+    Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub '${Environment}-Redis-Endpoint'
+
+  RedisPort:
+    Description: Redis port
+    Value: 6379
+    Export:
+      Name: !Sub '${Environment}-Redis-Port'
+
+  OpenSearchEndpoint:
+    Description: OpenSearch domain endpoint
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub '${Environment}-OpenSearch-Endpoint'
+
+  DatabaseSecretArn:
+    Description: Database credentials secret ARN
+    Value: !Ref DatabaseSecret
+    Export:
+      Name: !Sub '${Environment}-Database-Secret-ARN'
+
+  RedisAuthTokenArn:
+    Description: Redis auth token secret ARN
+    Value: !Ref RedisAuthToken
+    Export:
+      Name: !Sub '${Environment}-Redis-Token-ARN'
+
+  ApplicationSecurityGroupId:
+    Description: Application security group ID
+    Value: !GetAtt ApplicationSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${Environment}-App-SG-ID'
