@@ -1,0 +1,41 @@
+{
+  "customer-app": {
+    "bucketName": "foodeez-customer-app",
+    "region": "ap-south-1",
+    "distributionId": "E3ABCDE123456789",
+    "customDomain": "app.foodeez.com",
+    "buildCommand": "npm run build",
+    "buildOutput": ".next",
+    "environment": {
+      "NEXT_PUBLIC_API_URL": "http://18.60.53.146:3000/v1",
+      "NEXT_PUBLIC_SOCKET_URL": "http://18.60.53.146:3000",
+      "NEXT_PUBLIC_APP_ENV": "production"
+    }
+  },
+  "restaurant-portal": {
+    "bucketName": "foodeez-restaurant-portal",
+    "region": "ap-south-1",
+    "distributionId": "E3FEDCBA987654321",
+    "customDomain": "restaurant.foodeez.com",
+    "buildCommand": "npm run build",
+    "buildOutput": ".next",
+    "environment": {
+      "NEXT_PUBLIC_API_URL": "http://18.60.53.146:3000/v1",
+      "NEXT_PUBLIC_SOCKET_URL": "http://18.60.53.146:3000",
+      "NEXT_PUBLIC_APP_ENV": "production"
+    }
+  },
+  "admin-dashboard": {
+    "bucketName": "foodeez-admin-dashboard",
+    "region": "ap-south-1",
+    "distributionId": "E3XYZABC123456789",
+    "customDomain": "admin.foodeez.com",
+    "buildCommand": "npm run build",
+    "buildOutput": ".next",
+    "environment": {
+      "NEXT_PUBLIC_API_URL": "http://18.60.53.146:3000/v1",
+      "NEXT_PUBLIC_SOCKET_URL": "http://18.60.53.146:3000",
+      "NEXT_PUBLIC_APP_ENV": "production"
+    }
+  }
+}

@@ -19,6 +19,7 @@ import {
 } from '@/utils/errors';
 import { OrderStatus, PaymentMethod } from '@/types';
 import { PAYMENT_CONFIG, ORDER_CONFIG } from '@/utils/constants';
+import { emitOrderStatusUpdate, emitNewOrderToRestaurant } from '@/sockets';
 
 /**
  * Calculate delivery fee based on distance
@@ -273,6 +274,19 @@ export const createOrder = async (data: {
   // Increment customer total orders
   await customer.increment('totalOrders');
 
+  // Emit new order to restaurant via Socket.io
+  const orderWithRelations = await Order.findByPk(order.id, {
+    include: [
+      { model: Customer, as: 'customer' },
+      { model: OrderItem, as: 'items' },
+      { model: Address, as: 'deliveryAddress' },
+    ],
+  });
+
+  if (orderWithRelations) {
+    emitNewOrderToRestaurant(restaurantId, orderWithRelations.toJSON());
+  }
+
   return order;
 };
 
@@ -328,6 +342,16 @@ export const updateOrderStatus = async (
       });
     }
   }
+
+  // Emit real-time status update via Socket.io
+  emitOrderStatusUpdate(
+    order.id,
+    order.customerId,
+    order.restaurantId,
+    order.deliveryPartnerId,
+    status,
+    metadata
+  );
 
   return order;
 };

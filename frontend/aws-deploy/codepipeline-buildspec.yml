@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - npm install -g npm@latest
+      - npm install
+  pre_build:
+    commands:
+      - npm run type-check
+  build:
+    commands:
+      - npm run build
+  post_build:
+    commands:
+      - echo "Build completed on $(date)"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: '.next'
+  discard-paths:
+    - node_modules
+    - .next/cache
+
+cache:
+  paths:
+    - node_modules/**/*
+    - .next/cache/**/*

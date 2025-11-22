@@ -1,0 +1,65 @@
+{
+  "customer-mobile-app": {
+    "appId": "d3abc4def5ghi6jkl7mno8pq",
+    "appName": "Foodeez Customer App",
+    "platform": "ios",
+    "region": "ap-south-1",
+    "environment": {
+      "prod": {
+        "API_URL": "http://18.60.53.146:3000/v1",
+        "SOCKET_URL": "http://18.60.53.146:3000"
+      }
+    },
+    "buildSettings": {
+      "frontend": {
+        "buildPhases": [
+          {
+            "name": "preBuild",
+            "commands": [
+              "npm install",
+              "npx react-native link"
+            ]
+          },
+          {
+            "name": "build",
+            "commands": [
+              "npx react-native run-android --variant=release",
+              "npx react-native run-ios --configuration Release"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "delivery-partner-app": {
+    "appId": "e8fgh9ijk1lmn2op3qrs4tuv",
+    "appName": "Foodeez Delivery Partner",
+    "platform": "android",
+    "region": "ap-south-1",
+    "environment": {
+      "prod": {
+        "API_URL": "http://18.60.53.146:3000/v1",
+        "SOCKET_URL": "http://18.60.53.146:3000"
+      }
+    },
+    "buildSettings": {
+      "frontend": {
+        "buildPhases": [
+          {
+            "name": "preBuild",
+            "commands": [
+              "npm install",
+              "npx react-native link"
+            ]
+          },
+          {
+            "name": "build",
+            "commands": [
+              "npx react-native run-android --variant=release"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

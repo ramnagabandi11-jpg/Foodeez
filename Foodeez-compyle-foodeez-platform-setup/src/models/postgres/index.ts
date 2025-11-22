@@ -19,8 +19,10 @@ import SupportTicket from './SupportTicket';
 import OTPVerification from './OTPVerification';
 import AdminUser from './AdminUser';
 import AdminActivityLog from './AdminActivityLog';
+import AdminLog from './AdminLog';
 import FieldVisit from './FieldVisit';
 import RestaurantSubscription from './RestaurantSubscription';
+import RatingSummary from './RatingSummary';
 
 // Define associations
 // User associations
@@ -124,9 +126,17 @@ AdminUser.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 AdminUser.hasMany(SupportTicket, { foreignKey: 'assignedTo', as: 'assignedTickets' });
 AdminUser.hasMany(AdminActivityLog, { foreignKey: 'adminUserId', as: 'activityLogs' });
 AdminUser.hasMany(FieldVisit, { foreignKey: 'areaManagerId', as: 'fieldVisits' });
+AdminUser.hasMany(AdminLog, { foreignKey: 'adminId', as: 'adminLogs' });
 
 // AdminActivityLog associations
 AdminActivityLog.belongsTo(AdminUser, { foreignKey: 'adminUserId', as: 'adminUser' });
+
+// AdminLog associations
+AdminLog.belongsTo(User, { foreignKey: 'adminId', as: 'adminUser' });
+
+// RatingSummary associations
+RatingSummary.belongsTo(Restaurant, { foreignKey: 'restaurantId', as: 'restaurant' });
+Restaurant.hasOne(RatingSummary, { foreignKey: 'restaurantId', as: 'ratingSummary' });
 
 // FieldVisit associations
 FieldVisit.belongsTo(AdminUser, { foreignKey: 'areaManagerId', as: 'areaManager' });
@@ -159,8 +169,10 @@ export {
   OTPVerification,
   AdminUser,
   AdminActivityLog,
+  AdminLog,
   FieldVisit,
   RestaurantSubscription,
+  RatingSummary,
 };
 
 export default {
@@ -184,6 +196,8 @@ export default {
   OTPVerification,
   AdminUser,
   AdminActivityLog,
+  AdminLog,
   FieldVisit,
   RestaurantSubscription,
+  RatingSummary,
 };

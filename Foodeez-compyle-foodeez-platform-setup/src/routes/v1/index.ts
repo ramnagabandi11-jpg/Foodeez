@@ -3,6 +3,8 @@ import authRoutes from './auth';
 import orderRoutes from './orders';
 import paymentRoutes from './payments';
 import searchRoutes from './search';
+import reviewRoutes from './reviews';
+import adminRoutes from './admin';
 
 const router = Router();
 
@@ -11,5 +13,7 @@ router.use('/auth', authRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payment', paymentRoutes);
 router.use('/search', searchRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;

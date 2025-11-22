@@ -1,0 +1,20 @@
+# DNS Configuration for Route 53 Hosted Zone: foodeez.com
+# This should be imported into your Route 53 hosted zone
+
+# A Records (Pointing to CloudFront distributions)
+$TTL    300
+; Customer App
+app     A       d123456789.cloudfront.net.
+
+; Restaurant Portal
+restaurant A   d234567890.cloudfront.net.
+
+; Admin Dashboard
+admin    A       d345678901.cloudfront.net.
+
+; Root domain (if you want to point to main app)
+@        A       d123456789.cloudfront.net.
+
+# CNAME Records for verification
+$TTL    300
+_amplify CNAME amplifyapp.com.
