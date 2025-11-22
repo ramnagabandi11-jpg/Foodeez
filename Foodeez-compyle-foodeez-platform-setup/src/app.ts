@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { IApiResponse } from '@/types';
 import { AppError } from '@/utils/errors';
+import { logger, requestLogger, initializeMonitoring } from '@/config/monitoring';
 import routes from '@/routes';
 
 export const createApp = (): Express => {
@@ -32,6 +33,12 @@ export const createApp = (): Express => {
 
   // Logging middleware
   app.use(morgan('combined'));
+
+  // Request logging middleware
+  app.use(requestLogger);
+
+  // Initialize monitoring endpoints
+  initializeMonitoring(app);
 
   // Body parsing middleware
   app.use(express.json({ limit: '50mb' }));
@@ -81,7 +88,11 @@ export const createApp = (): Express => {
     }
 
     // Handle unhandled errors
-    console.error('Unhandled error:', error);
+    logger.error('Unhandled error:', {
+      message: error.message,
+      stack: error.stack,
+      requestId: (_req as any).requestId,
+    });
     return res.status(500).json({
       success: false,
       error: {
