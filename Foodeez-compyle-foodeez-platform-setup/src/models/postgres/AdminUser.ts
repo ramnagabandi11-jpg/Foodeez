@@ -4,7 +4,7 @@ import { sequelize } from '@/config/database';
 export interface AdminUserAttributes {
   id: string;
   userId: string;
-  role: 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance';
+  role: 'super_admin' | 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance' | 'hr';
   department: string | null;
   permissions: string[];
   assignedCities: string[];
@@ -17,7 +17,7 @@ export interface AdminUserCreationAttributes extends Optional<AdminUserAttribute
 class AdminUser extends Model<AdminUserAttributes, AdminUserCreationAttributes> implements AdminUserAttributes {
   declare id: string;
   declare userId: string;
-  declare role: 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance';
+  declare role: 'super_admin' | 'manager' | 'support' | 'area_manager' | 'team_lead' | 'finance' | 'hr';
   declare department: string | null;
   declare permissions: string[];
   declare assignedCities: string[];
@@ -43,7 +43,7 @@ AdminUser.init(
       onDelete: 'CASCADE',
     },
     role: {
-      type: DataTypes.ENUM('manager', 'support', 'area_manager', 'team_lead', 'finance'),
+      type: DataTypes.ENUM('super_admin', 'manager', 'support', 'area_manager', 'team_lead', 'finance', 'hr'),
       allowNull: false,
     },
     department: {

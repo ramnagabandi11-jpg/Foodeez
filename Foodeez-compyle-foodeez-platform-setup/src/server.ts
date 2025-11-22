@@ -19,7 +19,12 @@ import {
   disconnectElasticsearch
 } from '@/config/elasticsearch';
 import { initializeSocketIO } from '@/sockets';
+<<<<<<< HEAD
 import { initializeServices as initAppServices, setupGracefulShutdown } from '@/scripts/startup';
+=======
+import { startAllSchedulers, stopAllSchedulers } from '@/jobs/schedulers';
+import { getQueueStats, pauseAllQueues, resumeAllQueues, clearAllQueues } from '@/jobs/queues';
+>>>>>>> origin/compyle/foodeez-platform
 
 // Load environment variables
 dotenv.config();
@@ -65,6 +70,14 @@ async function initializeServices() {
     await initializeElasticsearch();
     logger.info('✓ Elasticsearch connected');
 
+    // Initialize background jobs
+    startAllSchedulers();
+    logger.info('✓ Background job schedulers started');
+
+    // Resume any paused queues
+    await resumeAllQueues();
+    logger.info('✓ Job queues resumed');
+
     logger.info('All services initialized successfully');
   } catch (error) {
     logger.error('Failed to initialize services:', error);
@@ -104,8 +117,53 @@ async function startServer() {
       `);
     });
 
+<<<<<<< HEAD
     // Setup graceful shutdown handlers
     setupGracefulShutdown(server);
+=======
+    // Graceful shutdown
+    const shutdown = async (signal: string) => {
+      logger.info(`\nReceived ${signal}, starting graceful shutdown...`);
+
+      server.close(async () => {
+        logger.info('Server closed');
+
+        try {
+          // Stop background jobs
+          stopAllSchedulers();
+          logger.info('✓ Background job schedulers stopped');
+
+          // Pause queues before disconnecting
+          await pauseAllQueues();
+          logger.info('✓ Job queues paused');
+
+          // Clear queue jobs for clean shutdown
+          await clearAllQueues();
+          logger.info('✓ Job queues cleared');
+
+          await disconnectDatabase();
+          await disconnectMongoDB();
+          await disconnectRedis();
+          await disconnectElasticsearch();
+
+          logger.info('All services disconnected');
+          process.exit(0);
+        } catch (error) {
+          logger.error('Error during shutdown:', error);
+          process.exit(1);
+        }
+      });
+
+      // Force shutdown after 10 seconds
+      setTimeout(() => {
+        logger.error('Forcing shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+>>>>>>> origin/compyle/foodeez-platform
 
     // Unhandled rejection
     process.on('unhandledRejection', (reason, promise) => {

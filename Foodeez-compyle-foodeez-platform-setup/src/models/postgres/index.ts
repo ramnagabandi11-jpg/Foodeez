@@ -22,7 +22,17 @@ import AdminActivityLog from './AdminActivityLog';
 import AdminLog from './AdminLog';
 import FieldVisit from './FieldVisit';
 import RestaurantSubscription from './RestaurantSubscription';
+<<<<<<< HEAD
 import RatingSummary from './RatingSummary';
+=======
+import Department from './Department';
+import Shift from './Shift';
+import Employee from './Employee';
+import LeaveRequest from './LeaveRequest';
+import Attendance from './Attendance';
+import JobPost from './JobPost';
+import Holiday from './Holiday';
+>>>>>>> origin/compyle/foodeez-platform
 
 // Define associations
 // User associations
@@ -147,6 +157,34 @@ FieldVisit.belongsTo(DeliveryPartner, { foreignKey: 'deliveryPartnerId', as: 'de
 RestaurantSubscription.belongsTo(Restaurant, { foreignKey: 'restaurantId', as: 'restaurant' });
 RestaurantSubscription.belongsTo(Transaction, { foreignKey: 'transactionId', as: 'transaction' });
 
+// HR Models associations
+// Department associations
+Department.hasMany(Employee, { foreignKey: 'departmentId', as: 'employees' });
+Department.hasMany(JobPost, { foreignKey: 'departmentId', as: 'jobPosts' });
+
+// Shift associations
+Shift.hasMany(Employee, { foreignKey: 'shiftId', as: 'employees' });
+
+// Employee associations
+Employee.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Employee.belongsTo(Department, { foreignKey: 'departmentId', as: 'department' });
+Employee.belongsTo(Shift, { foreignKey: 'shiftId', as: 'shift' });
+Employee.hasMany(LeaveRequest, { foreignKey: 'employeeId', as: 'leaveRequests' });
+Employee.hasMany(Attendance, { foreignKey: 'employeeId', as: 'attendanceRecords' });
+
+// LeaveRequest associations
+LeaveRequest.belongsTo(Employee, { foreignKey: 'employeeId', as: 'employee' });
+LeaveRequest.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+
+// Attendance associations
+Attendance.belongsTo(Employee, { foreignKey: 'employeeId', as: 'employee' });
+
+// JobPost associations
+JobPost.belongsTo(Department, { foreignKey: 'departmentId', as: 'department' });
+
+// User associations for HR
+User.hasOne(Employee, { foreignKey: 'userId', as: 'employee' });
+
 // Export all models
 export {
   User,
@@ -172,7 +210,17 @@ export {
   AdminLog,
   FieldVisit,
   RestaurantSubscription,
+<<<<<<< HEAD
   RatingSummary,
+=======
+  Department,
+  Shift,
+  Employee,
+  LeaveRequest,
+  Attendance,
+  JobPost,
+  Holiday,
+>>>>>>> origin/compyle/foodeez-platform
 };
 
 export default {
@@ -199,5 +247,15 @@ export default {
   AdminLog,
   FieldVisit,
   RestaurantSubscription,
+<<<<<<< HEAD
   RatingSummary,
+=======
+  Department,
+  Shift,
+  Employee,
+  LeaveRequest,
+  Attendance,
+  JobPost,
+  Holiday,
+>>>>>>> origin/compyle/foodeez-platform
 };

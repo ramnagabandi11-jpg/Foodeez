@@ -1,0 +1,28 @@
+import { Router } from 'express';
+import restaurantRoutes from './restaurants';
+import deliveryPartnerRoutes from './delivery-partners';
+import customerRoutes from './customers';
+import orderRoutes from './orders';
+import financeRoutes from './finance';
+import analyticsRoutes from './analytics';
+import supportRoutes from './support';
+import hrRoutes from './hr';
+import fieldVisitsRoutes from './field-visits';
+import advertisementsRoutes from './advertisements';
+import activityLogsRoutes from './activity-logs';
+
+const router = Router();
+
+router.use('/restaurants', restaurantRoutes);
+router.use('/delivery-partners', deliveryPartnerRoutes);
+router.use('/customers', customerRoutes);
+router.use('/orders', orderRoutes);
+router.use('/finance', financeRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/support', supportRoutes);
+router.use('/hr', hrRoutes);
+router.use('/field-visits', fieldVisitsRoutes);
+router.use('/advertisements', advertisementsRoutes);
+router.use('/activity-logs', activityLogsRoutes);
+
+export default router;
